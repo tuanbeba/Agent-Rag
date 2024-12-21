@@ -1,1 +1,4 @@
-data
+data/
+chroma_langchain_db/
+.gitignore
+chroma/
