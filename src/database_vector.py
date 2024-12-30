@@ -37,6 +37,7 @@ def create_ChromaDB(path_json: str, collection_name: str, CHROMA_PATH: str = "./
 
 
 def connect_Chroma(collection_name: str, persist_directory: str="./chroma_test"):
+
     # khởi tạo model embedding
     embedding_model = OllamaEmbeddings(model="nomic-embed-text")
     # load vector store from disk
@@ -55,44 +56,20 @@ def main():
     create_ChromaDB(json_path,"collection_1")
     # test tạo vector store và connect tới vector store sử dụng chromaDB
 
-    vectorstore = connect_Chroma("collection_1","./chroma_test")
-    # vectorstore.delete_collection()
-
+    vectorstore = connect_Chroma("collection_1")
+    print(vectorstore._collection.count())
     # Kết nối với client Chroma từ vectorstore
-    client = vectorstore._client
+    # client = vectorstore._client
 
-    # Lấy danh sách collections
-    collections = client.list_collections()
+    # # Lấy danh sách collections
+    # collections = client.list_collections()
 
-    for collection in collections:
+    # for collection in collections:
 
-        print(f"Collection Name: {collection.name}")
-        print(f"Collection id: {collection.id}")
-        print(f"the length vector of collection {collection.count()}")
+    #     print(f"Collection Name: {collection.name}")
+    #     print(f"Collection id: {collection.id}")
+    #     print(f"the length vector of collection {collection.count()}")
               
-
-    # Initialization from client
-    # persistent_client = chromadb.PersistentClient()
-    # # lấy collection
-    # collection = persistent_client.get_or_create_collection("collection_name")
-
-
-    # # Lấy số lượng vector trong vector store
-    # num_vectors = collection.count()
-    # print(f"Number of vectors in the store: {num_vectors}")
-    # # Truy xuất toàn bộ thông tin từ vector store
-    # data = collection.get(include=["documents", "embeddings", "metadatas"])
-
-    # # Kiểm tra nếu không có data['ids'] thì truy xuất từ dữ liệu
-    # ids = data.get("ids", [])
-
-    # # In các thông tin chi tiết về các vector
-    # for idx, doc_id in enumerate(ids):
-    #     print(f"ID: {doc_id}")
-    #     print(f"Document: {data['documents'][idx]}")
-    #     print(f"Dimention of Embedding: {len(data['embeddings'][idx])}")
-    #     print(f"Metadata: {data['metadatas'][idx]}")
-    #     print("-" * 50)
 
 if __name__ == "__main__":
     main()
