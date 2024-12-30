@@ -1,6 +1,9 @@
 data/
 chroma_langchain_db/
 .gitignore
-chroma/
+chroma_test/
 volumes/
 chroma.log
+*.ipynb
+.env
+__pycache__

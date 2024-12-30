@@ -19,13 +19,13 @@ def loadPDF_from_file(path_pdf: str):
     docs = pdf_loader.load()
     for doc in docs:
         doc.page_content = processing_text(doc.page_content)
-    print(f"len document: {len(docs)}") # 14
+    print(f"len document: {len(docs)}") 
     
     # chia nhỏ các document thành các chunks
     separators: List[str]  = ["\n\n", "\n", " ", ""]
-    char_splitter = RecursiveCharacterTextSplitter(chunk_size = 2000, chunk_overlap = 300, separators=separators)
+    char_splitter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap = 100, separators=separators)
     docs_splitted = char_splitter.split_documents(docs)
-    print(f"len document splitted: {len(docs_splitted)}") # 35
+    print(f"len document splitted: {len(docs_splitted)}") 
     return docs_splitted
 
 def save_documents(path_pdf: str, directory: str):
@@ -54,10 +54,10 @@ def save_documents(path_pdf: str, directory: str):
     with open(file = path_json, mode="w") as f:
         json.dump(save_data, f, indent = 4)
 
-    print("saved data")
+    print("saved to json file")
 
 def main():
-    file_pdf_local = r"data\2312.16862v3.pdf"
+    file_pdf_local = r"data\1506.02640v5.pdf"
 
     save_documents(file_pdf_local, "data")
 
