@@ -7,3 +7,4 @@ chroma.log
 *.ipynb
 .env
 __pycache__
+test.py

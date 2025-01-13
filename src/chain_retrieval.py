@@ -60,29 +60,24 @@ def create_chain():
     return retrievel_chain
 
 def create_session_chat(chain, user_input, chat_history):
-    result = chain.invoke({
+    response = chain.stream({
         "input": user_input,
         "chat_history": chat_history
         
     })
     
-    return result
+    return response
 
 def main():
     
     chain = create_chain()
     chat_history = []
-    
-    while True:
 
-        user_input = input("Human: ")
-        if user_input.lower() == "exit":
-            break
-        result = create_session_chat(chain, user_input, chat_history)
-        chat_history.append(HumanMessage(content=user_input))
-        chat_history.append(AIMessage(content=result["answer"]))
 
-        print(f"Assistant:", result["answer"])
+
+    user_input = "what is yolo"
+    for chunk in create_session_chat(chain, user_input, chat_history):
+        print(chunk, end="\n", flush=True)
 
 if __name__ =="__main__":
     main()
