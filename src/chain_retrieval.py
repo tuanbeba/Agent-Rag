@@ -72,12 +72,28 @@ def main():
     
     chain = create_chain()
     chat_history = []
+    # while True:
+
+    #     user_input = input("Human: ")
+    #     if user_input.lower() == "exit":
+    #         break
+    #     result = create_session_chat(chain, user_input, chat_history)
+    #     chat_history.append(HumanMessage(content=user_input))
+    #     chat_history.append(AIMessage(content=result["answer"]))
+
+    #     print(f"Assistant:", result["answer"])
 
 
+    # user_input = "what is yolo"
+    # for chunk in create_session_chat(chain, user_input, chat_history):
+    #     print(chunk, end="\n", flush=True)
 
-    user_input = "what is yolo"
-    for chunk in create_session_chat(chain, user_input, chat_history):
-        print(chunk, end="\n", flush=True)
+
+    chat_history.append(HumanMessage(content="1"))
+    chat_history.append(AIMessage(content= "bot 1"))
+    chat_history.append(HumanMessage(content="2"))
+    chat_history.append(AIMessage(content= "bot 2"))
+    print(chat_history)
 
 if __name__ =="__main__":
     main()
