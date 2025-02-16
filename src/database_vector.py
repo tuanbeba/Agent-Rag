@@ -1,25 +1,18 @@
 from langchain_chroma import Chroma
-from langchain_core.documents import Document
-import json
-from uuid import uuid4
+from crawler import pdf_to_text
 from langchain_ollama import OllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
-def create_ChromaDB(path_json: str, collection_name: str, CHROMA_PATH: str = "./chroma_test"):
+def create_ChromaDB(pdf_file: str, embed_model: str, collection_name: str = "collection1", CHROMA_PATH: str = "./chroma_test"):
 
-    # đọc file json
-    with open(path_json, mode='r') as f:
-        data=json.load(f)
-    print("loaded data from json file")
-
-    # chuyển đổi sang định dạng document
-    docs = []
-    for doc in data:
-        new_doc = Document(page_content=doc["page_content"], metadata = doc["metadata"])
-        docs.append(new_doc)
-    # tạo id cho document
-    uuids = [str(uuid4()) for _ in range(len(docs))]
-    # khởi tạo model embedding
+    # chọn model embedding text
+    if embed_model == "nomic-embed-text":
+        embedding_model = OllamaEmbeddings(model="nomic-embed-text")
+    else:
+        embedding_model = OpenAIEmbeddings(mode="text-embedding-3-large")
     embedding_model = OllamaEmbeddings(model="nomic-embed-text")
+    # chia file pdf ban đầu thành các đoạn chunk nhỏ
+    chunks = pdf_to_text(pdf_file=pdf_file)
     # khởi tạo kho lưu trữ vector với Chroma (mode in-memory save disk)
     vector_store = Chroma(
     collection_name=collection_name, # tên collection
@@ -28,21 +21,19 @@ def create_ChromaDB(path_json: str, collection_name: str, CHROMA_PATH: str = "./
     )
     # xóa collection và tạo lại collection rỗng
     vector_store.reset_collection()
-    # Embedding các document thành vector và lưu vào db, thêm id cho từng document
-    vector_store.add_documents(documents= docs, ids = uuids)
+    # Embedding các đoạn chunk
+    vector_store.add_texts(texts=chunks)
     print("vector save to disk")
 
     return vector_store
 
 
+def connect_Chroma(embed_model: str, collection_name: str = "collection1", persist_directory: str="./chroma_test"):
 
-def connect_Chroma(collection_name: str, persist_directory: str="./chroma_test"):
 
-    # khởi tạo model embedding
-    embedding_model = OllamaEmbeddings(model="nomic-embed-text")
     # load vector store from disk
     vector_store = Chroma(collection_name=collection_name,
-    embedding_function=embedding_model,
+    embedding_function=embed_model,
     persist_directory=persist_directory
     )
     print("connected chromaDB")

@@ -1,10 +1,13 @@
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
 from database_vector import connect_Chroma
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -14,19 +17,30 @@ def create_retrieval(collection_name: str="collection_1", top_k: int=4):
 
     # kết nối tới vectordb
     vectorDB = connect_Chroma(collection_name= collection_name)
-    # tạo retrival
-    retriever = vectorDB.as_retriever(search_type="similarity", search_kwargs ={"k":top_k})
-    
-    return retriever
+    # tạo retrival chroma
+    chroma_retriever = vectorDB.as_retriever(search_type="similarity", search_kwargs ={"k":top_k})
+    # tạo retriver BM25
 
-def create_chain():
+    # tạo retrievel kết hợp BM25 và chroma
+    
+    return chroma_retriever
+
+def create_chain(chat_model: str):
 
     # khởi tạo model chat
-    llm = ChatOllama(
-        model = 'llama3.1',  # hoặc model khác tùy chọn
-        temperature=0.3,
-        streaming=True
-    )
+    if chat_model == "llama3.1":
+        llm = ChatOllama(
+            model = 'llama3.1',
+            temperature=0.1,
+            streaming=True
+        )
+    else:
+        llm = ChatOpenAI(
+            model = 'gpt-4o-mini',
+            temperature=0.1,
+            streaming=True
+        )
+
 
     # tạo prompt template
     prompt = ChatPromptTemplate.from_messages([
@@ -72,28 +86,21 @@ def main():
     
     chain = create_chain()
     chat_history = []
-    # while True:
+    while True:
 
-    #     user_input = input("Human: ")
-    #     if user_input.lower() == "exit":
-    #         break
-    #     result = create_session_chat(chain, user_input, chat_history)
-    #     chat_history.append(HumanMessage(content=user_input))
-    #     chat_history.append(AIMessage(content=result["answer"]))
+        user_input = input("Human: ")
+        if user_input.lower() == "exit":
+            break
+        result = create_session_chat(chain, user_input, chat_history)
+        chat_history.append(HumanMessage(content=user_input))
+        chat_history.append(AIMessage(content=result["answer"]))
 
-    #     print(f"Assistant:", result["answer"])
-
-
-    # user_input = "what is yolo"
-    # for chunk in create_session_chat(chain, user_input, chat_history):
-    #     print(chunk, end="\n", flush=True)
+        print(f"Assistant:", result["answer"])
 
 
-    chat_history.append(HumanMessage(content="1"))
-    chat_history.append(AIMessage(content= "bot 1"))
-    chat_history.append(HumanMessage(content="2"))
-    chat_history.append(AIMessage(content= "bot 2"))
-    print(chat_history)
+    user_input = "what is yolo"
+    for chunk in create_session_chat(chain, user_input, chat_history):
+        print(chunk, end="\n", flush=True)
 
 if __name__ =="__main__":
     main()
