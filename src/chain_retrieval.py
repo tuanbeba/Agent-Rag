@@ -4,6 +4,7 @@ from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.tools import tool
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
 from database_vector import connect_Chroma
 from langchain_community.retrievers import BM25Retriever
@@ -13,8 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
+@tool(response_format="content_and_artifact")
 def create_retrieval(collection_name: str="collection_1", top_k: int=4):
-
+    """Retrieve information related to a query."""
     # kết nối tới vectordb
     vectorDB = connect_Chroma(collection_name= collection_name)
     # tạo retrival chroma

@@ -19,18 +19,24 @@ def handle_file(embedd_model):
     st.header("Tải tệp PDF ")
     pdf_file = st.file_uploader(label="Upload pdf here", type= ["pdf"])
 
+    if "bool_db" not in st.session_state:
+        st.session_state.bool_db = False
+    
     if pdf_file is not None:
-        # with st.spinner("Vui lòng chờ trong giây lát"):
-        #     try:
+        print(pdf_file.name)
+        if st.session_state.bool_db == False:
+            with st.spinner("Vui lòng chờ trong giây lát"):
+                try:
 
-        #         db = create_ChromaDB(pdf_file=pdf_file, embed_model=embedd_model)
-        #         st.success("Tạo vectorDB thành công.")
-        #     except Exception as e:
-        #         st.error(f" lỗi {str(e)}")
-        pass
+                    vector_store = create_ChromaDB(pdf_file=pdf_file, embed_model=embedd_model)
+                    st.session_state.bool_db = True
+                    st.success("Tạo vectorDB thành công.")
+                except Exception as e:
+                    st.error(f" lỗi {str(e)}")
+        # pass
         
-        # return chunks
     else:
+        st.session_state.bool_db = False
         st.warning("Bạn cần tải ít nhất một file PDF trước khi chat.")
         st.stop()  # Lệnh này sẽ dừng các phần code bên dưới, ẩn luôn giao diện chat
     
@@ -55,7 +61,7 @@ def setup_sidebar():
 
         if embedd_model == "llama3.1":
             # chain = create_chain(embedd_model)
-            print("Model chat: ",embedd_model)
+            print("Model chat: ", embedd_model)
         else: # text-embedding-3-large
             # chain = create_chain(embedd_model)
             print("model embedding: ", embedd_model)
@@ -103,6 +109,7 @@ def handle_user_input():
             # )
             output = "AI, " + prompt
             print("chat history: \n", chat_history)
+            st.write(output)
         # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": output})
         
@@ -116,6 +123,7 @@ def main():
     handle_file(embedd_model)
     display_chat_history()
     handle_user_input()
+    print("#######################")
 
 
 if __name__ == "__main__":
