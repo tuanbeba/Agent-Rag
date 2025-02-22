@@ -1,11 +1,10 @@
 import streamlit as st
 from database_vector import create_ChromaDB
-from crawler import pdf_to_text
 from chain_retrieval import create_chain
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
 
 def load_api_keys():
-
     load_dotenv()
 
 def setup_page_config():
@@ -23,7 +22,15 @@ def handle_file(embedd_model):
         st.session_state.bool_db = False
     
     if pdf_file is not None:
-        print(pdf_file.name)
+        #lấy tên file hiện tại
+        current_filename = pdf_file.name     
+        # kiểm tra xem có thay đổi file không
+        if "upload_file" in st.session_state:
+            if current_filename != st.session_state.upload_file:
+                st.session_state.bool_db = False
+        else :
+            st.session_state.upload_file = current_filename
+
         if st.session_state.bool_db == False:
             with st.spinner("Vui lòng chờ trong giây lát"):
                 try:
@@ -45,32 +52,29 @@ def handle_file(embedd_model):
 def setup_sidebar():
     with st.sidebar:
         st.title("Chatbot Setting")
-    
-        # chọn model chat
-        chat_model = st.sidebar.selectbox(label="Lựa chọn model chat", options=["llama3.1", "gpt-4o-mini"])
-        if chat_model == "llama3.1":
-            # chain = create_chain(chat_model)
-            print("Model chat: ",chat_model)
-        else: # gpt4o-mini
-            # chain = create_chain(chat_model)
-            print("model chat: ", chat_model)
         
         # chọn model embed
         embedd_model = st.sidebar.selectbox(label="Lựa chọn model embedding", 
                                             options=["nomic-embed-text", "text-embedding-3-large"])
-
         if embedd_model == "llama3.1":
-            # chain = create_chain(embedd_model)
             print("Model chat: ", embedd_model)
         else: # text-embedding-3-large
-            # chain = create_chain(embedd_model)
             print("model embedding: ", embedd_model)
         # xóa lịch sử chat
         if st.button(label="Clear history"):
             st.session_state.message = []
             print("Delete history")
+           
+        # chọn model chat
+        chat_model = st.sidebar.selectbox(label="Lựa chọn model chat", options=["llama3.1", "gpt-4o-mini"])
+        if chat_model == "llama3.1":
+            chain = create_chain(chat_model=chat_model, embedd_model=embedd_model)
+            print("Model chat: ",chat_model)
+        else: # gpt4o-mini
+            chain = create_chain(chat_model=chat_model, embedd_model=embedd_model)
+            print("model chat: ", chat_model)
 
-    return embedd_model
+    return embedd_model,chain
 
 
 def display_chat_history():
@@ -85,7 +89,7 @@ def display_chat_history():
             st.write(message["content"])
 
 
-def handle_user_input():
+def handle_user_input(llm_with_tools):
 
     # đầu vào người dùng
     if prompt:=st.chat_input(placeholder="Nhập câu hỏi của bạn ở đây?"):
@@ -101,15 +105,15 @@ def handle_user_input():
             chat_history = []
             for message in st.session_state.messages[:-1]:
                 chat_history.append({"role": message["role"], "content": message["content"]})
-            #lấy phản hồi từ chain
+            # lấy phản hồi từ chain
             # response = chain.invoke({
             #     "input": prompt,
             #     "chat_history": chat_history    
             #     }
             # )
-            output = "AI, " + prompt
+            reponse = llm_with_tools.invoke([HumanMessage(content=prompt)])
             print("chat history: \n", chat_history)
-            st.write(output)
+            st.write(reponse)
         # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": output})
         
@@ -119,10 +123,10 @@ def main():
 
     load_api_keys()
     setup_page_config()
-    embedd_model = setup_sidebar()
+    embedd_model, llm_with_tool = setup_sidebar()
     handle_file(embedd_model)
     display_chat_history()
-    handle_user_input()
+    handle_user_input(llm_with_tool)
     print("#######################")
 
 
