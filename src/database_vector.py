@@ -47,7 +47,8 @@ def connect_Chroma(embed_model: str="nomic-embed-text", collection_name: str = "
 
 
 def main():
-    
+    #test function
+    db =create_ChromaDB(pdf_file=r"data\1506.02640v5.pdf", embed_model = "nomic-embed-text")
     collection = connect_Chroma(embed_model="nomic-embed-text")
     print(len(collection.get()["metadatas"]))
               

@@ -1,6 +1,6 @@
 import streamlit as st
 from database_vector import create_ChromaDB
-from chain_retrieval import create_chain
+from rag import create_agent1
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
@@ -56,10 +56,7 @@ def setup_sidebar():
         # chọn model embed
         embedd_model = st.sidebar.selectbox(label="Lựa chọn model embedding", 
                                             options=["nomic-embed-text", "text-embedding-3-large"])
-        if embedd_model == "llama3.1":
-            print("Model chat: ", embedd_model)
-        else: # text-embedding-3-large
-            print("model embedding: ", embedd_model)
+        print("model embedding: ", embedd_model)
         # xóa lịch sử chat
         if st.button(label="Clear history"):
             st.session_state.message = []
@@ -67,14 +64,9 @@ def setup_sidebar():
            
         # chọn model chat
         chat_model = st.sidebar.selectbox(label="Lựa chọn model chat", options=["llama3.1", "gpt-4o-mini"])
-        if chat_model == "llama3.1":
-            chain = create_chain(chat_model=chat_model, embedd_model=embedd_model)
-            print("Model chat: ",chat_model)
-        else: # gpt4o-mini
-            chain = create_chain(chat_model=chat_model, embedd_model=embedd_model)
-            print("model chat: ", chat_model)
+        print("model chat: ", chat_model)
 
-    return embedd_model,chain
+    return embedd_model, chat_model
 
 
 def display_chat_history():
@@ -123,10 +115,11 @@ def main():
 
     load_api_keys()
     setup_page_config()
-    embedd_model, llm_with_tool = setup_sidebar()
+    embedd_model, chat_model = setup_sidebar()
+    agent_rag = create_agent1(chat_model=chat_model, embedd_model=embedd_model)
     handle_file(embedd_model)
     display_chat_history()
-    handle_user_input(llm_with_tool)
+    handle_user_input(agent_rag)
     print("#######################")
 
 
