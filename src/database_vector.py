@@ -1,5 +1,5 @@
 from langchain_chroma import Chroma
-from crawler import pdf_to_text
+from crawler import pdf_to_text, chunk_docs
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 
@@ -12,7 +12,7 @@ def create_ChromaDB(pdf_file: str, embed_model: str, collection_name: str = "col
         embedding_model = OpenAIEmbeddings(mode="text-embedding-3-large")
     embedding_model = OllamaEmbeddings(model="nomic-embed-text")
     # chia file pdf ban đầu thành các đoạn chunk nhỏ
-    chunks = pdf_to_text(pdf_file=pdf_file)
+    chunks = chunk_docs(pdf_file=pdf_file)
     # khởi tạo kho lưu trữ vector với Chroma (mode in-memory save disk)
     vector_store = Chroma(
     collection_name=collection_name, # tên collection
@@ -22,7 +22,7 @@ def create_ChromaDB(pdf_file: str, embed_model: str, collection_name: str = "col
     # xóa collection và tạo lại collection rỗng
     vector_store.reset_collection()
     # Embedding các đoạn chunk
-    vector_store.add_texts(texts=chunks)
+    vector_store.add_documents(documents=chunks)
     print("vector save to disk")
 
     return vector_store
@@ -48,7 +48,7 @@ def connect_Chroma(embed_model: str="nomic-embed-text", collection_name: str = "
 
 def main():
     #test function
-    db =create_ChromaDB(pdf_file=r"data\1506.02640v5.pdf", embed_model = "nomic-embed-text")
+    # db =create_ChromaDB(pdf_file=r"data\1506.02640v5.pdf", embed_model = "nomic-embed-text")
     collection = connect_Chroma(embed_model="nomic-embed-text")
     print(len(collection.get()["metadatas"]))
               

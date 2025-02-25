@@ -1,5 +1,6 @@
 from PyPDF2 import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader
 from typing import List
 import re
 
@@ -28,6 +29,21 @@ def pdf_to_text(pdf_file: str):
 
     return text_splitted
 
+def chunk_docs(pdf_file: str):
+
+    #trích xuất văn bản từ file pdf
+    pdf_loader = PyPDFLoader(pdf_file)
+    pages = pdf_loader.load()
+    print(f"len pages: {len(pages)}")
+    for page in pages:
+        page.page_content = processing_text(page.page_content)
+    # chia nhỏ text thành các chunks
+    separators: List[str]  = ["\n\n", "\n", " ", ""]
+    char_splitter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap = 200, separators=separators)
+    docs_splitted = char_splitter.split_documents(pages)
+    print(f"len document splitted: {len(docs_splitted)}") 
+
+    return docs_splitted
 # def save_documents(path_pdf: str, directory: str):
 
 #     # tải file pdf từ đường dẫn
