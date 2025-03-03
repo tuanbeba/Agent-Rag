@@ -8,3 +8,4 @@ chroma.log
 .env
 __pycache__
 test.py
+image/*

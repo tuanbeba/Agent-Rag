@@ -3,13 +3,18 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from typing import List
 import re
+import os, json
 
 
 def processing_text(text: str):
-    # thay thế "\n\n+" thành "\n\n" và loại bỏ khoảng trắng đầu và cuối câu
-    text = re.sub(r"\n\n+", "\n\n", text).strip()
-    # xóa các ký tự chứa surrogate
-    text = re.sub(r'[\ud800-\udfff]', '', text)
+    # định nghĩa regex
+    pattern = r'[a-zA-Z0-9 \u00C0-\u01B0\u1EA0-\u1EF9`~!@#$%^&*()_\-+=\[\]{}|\\;:\'",.<>/?]+'
+    # xóa các ký tự không nằm trong pattern
+    sub_text = re.findall(pattern, text)
+    # join các chuỗi con thành một chuỗi duy nhất 
+    text = ' '.join(sub_text)
+    # xóa các ký tự khoảng trắng thừa
+    # text = re.sub(r'\s+', ' ', text.strip())
 
     return text
 
@@ -44,38 +49,40 @@ def chunk_docs(pdf_file: str):
     print(f"len document splitted: {len(docs_splitted)}") 
 
     return docs_splitted
-# def save_documents(path_pdf: str, directory: str):
 
-#     # tải file pdf từ đường dẫn
-#     docs = loadPDF_from_file(path_pdf)
-#     # tạo dic nếu dic chưa tồn tại
-#     if not os.path.exists(directory):
-#         os.makedirs(directory)
+def save_documents(path_pdf: str, directory: str):
+
+    # tải file pdf từ đường dẫn
+    docs = chunk_docs(path_pdf)
+    # tạo dic nếu dic chưa tồn tại
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     
-#     # chuyển đổi data để có thê lưu dưới dạng json
-#     save_data = []
-#     for doc in docs:
-#         data = {
-#             "metadata": doc.metadata,
-#             "page_content": doc.page_content
-#         }
-#         save_data.append(data)
+    # # chuyển đổi data để có thê lưu dưới dạng json
+    save_data = []
+    for doc in docs:
+        data = {
+            "metadata": doc.metadata,
+            "page_content": doc.page_content
+        }
+        save_data.append(data)
 
-#     # lấy tên file pdf
-#     file_pdf = os.path.split(path_pdf)[1]
-#     # thay phần đuôi mở rộng pdf thành json
-#     file_json = os.path.splitext(file_pdf)[0] + '.json'
-#     # tạo đường dẫn tới file json
-#     path_json = os.path.join(directory,file_json)
-#     with open(file = path_json, mode="w") as f:
-#         json.dump(save_data, f, indent = 4)
+    # lấy tên file pdf
+    file_pdf = os.path.split(path_pdf)[1]
+    # thay phần đuôi mở rộng pdf thành json
+    file_json = os.path.splitext(file_pdf)[0] + '.json'
+    # tạo đường dẫn tới file json
+    path_json = os.path.join(directory,file_json)
+    with open(file = path_json, mode="w") as f:
+        json.dump(save_data, f, indent = 4)
 
-#     print("saved to json file")
+    print("saved to json file")
 
-# def main():
-#     file_pdf_local = r"data\1506.02640v5.pdf"
+def main():
+    path_pdf = r"data\1506.02640v5.pdf"
 
-#     save_documents(file_pdf_local, "data")
+    # tải file pdf từ đường dẫn
+    save_documents(path_pdf=path_pdf, directory="data")
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()

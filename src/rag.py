@@ -12,6 +12,8 @@ import os
 from langgraph.graph import MessagesState, StateGraph
 from langgraph.prebuilt import create_react_agent
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import MemorySaver
+
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
@@ -47,7 +49,7 @@ def create_agent1(chat_model: str, embedd_model: str) -> AgentExecutor:
     #tạo tool retriever
     retrieve_tool =create_retriever_tool(retriever= retriever(embedd_model=embedd_model), 
     name="file_search", 
-    description="Search for information within the uploaded files. For any question related to YOLO, you must use this tool to get the answer!")
+    description="Retrieve information related to a query")
     tools = [retrieve_tool]
 
     # tạo prompt cho agent
@@ -67,9 +69,16 @@ def create_agent1(chat_model: str, embedd_model: str) -> AgentExecutor:
 
     return agent_executor
 
+def create_session_chat(agent_executor, user_input, chat_history):
+    response = agent_executor.invoke({
+        "input": user_input,
+        "chat_history": chat_history
+        
+        }
+    )
 
 
-@tool(response_format="content_and_artifact")
+# @tool()
 def retrieve(query: str):
     """Retrieve information related to a query."""
     # kết nối tới vectordb
@@ -79,9 +88,7 @@ def retrieve(query: str):
         (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
         for doc in retrieved_docs
     )
-    return serialized, retrieved_docs
-
-from langgraph.checkpoint.memory import MemorySaver
+    return retrieved_docs
 
 def create_agent2(chat_model: str):
     # khởi tạo model chat
@@ -97,30 +104,44 @@ def create_agent2(chat_model: str):
             temperature=0.1,
             streaming=True
         )
-    system_message = "You are a helpful assistant. Respond only in Vietnamese."
-    agent_executor = create_react_agent(llm, [retrieve], state_modifier = system_message)
+    system_message = "You are a helpful assistant named AlphaAI."
+    memory = MemorySaver()
+    agent_executor = create_react_agent(llm, [retrieve], state_modifier = system_message, checkpointer=memory)
 
     return agent_executor
 
-def create_session_chat(agent_executor, user_input, chat_history):
-    response = agent_executor.invoke({
-        "input": user_input,
-        "chat_history": chat_history
-        
-        }
+
+def generate_respone(agent_excutor, user_input, thread_id: str="test-thread"):
+    config = {"configurable": {"thread_id": thread_id}}
+
+    response = agent_excutor.invoke(
+        {
+            "messages": [
+                ("user", user_input)
+            ]
+        },
+        config,
     )
     
     return response
+
+def save_agent_graph(agent_executor):
+    # Định nghĩa đường dẫn lưu file
+    output_path = "image/agent_graph.png"
+
+    # Lưu hình ảnh vào file
+    image_data=agent_executor.get_graph().draw_mermaid_png()
+
+    with open(output_path, "wb") as f:
+        f.write(image_data)
+
 
 
 def main():
 
     # test retriever
-    # retriever = retrieve(embedd_model="nomic-embed-text")
-    # respone = retriever.invoke(input="what is yolo")
-    # for doc in respone:
-    #     print(doc)
-    #     print("###########")
+    docs = retrieve(query="yolo là gì")
+    print(docs)
     # test agent1
     # chat_history = []
     # agent_executor = create_agent1(chat_model="gpt-4o-mini",embedd_model="nomic-embed-text")
@@ -133,12 +154,14 @@ def main():
     #     chat_history.append(AIMessage(content=output))
     #     print(f"AI: {respone}")
     # test agent 2
-    agent_executor = create_agent2(chat_model="gpt-4o-mini")
-    while (user_input := input("user input: ")):
-        if user_input.lower() == "quit":
-            break
-        respone = agent_executor.invoke({"messages": [("human",user_input)]})
-        print(f"AI: {respone}")
+    # agent_executor = create_agent2(chat_model="gpt-4o-mini")
+    # # save_agent_graph(agent_executor)
+    # while (user_input := input("user input: ")):
+    #     if user_input.lower() == "quit":
+    #         break
+    #     respone = generate_respone(agent_excutor=agent_executor,user_input=user_input)
+    #     output = respone["messages"][-1].content
+    #     print(f"AI: {output}")
 
 
 if __name__ =="__main__":
