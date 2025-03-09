@@ -78,7 +78,7 @@ def create_session_chat(agent_executor, user_input, chat_history):
     )
 
 
-# @tool()
+@tool()
 def retrieve(query: str):
     """Retrieve information related to a query."""
     # kết nối tới vectordb
@@ -89,6 +89,8 @@ def retrieve(query: str):
         for doc in retrieved_docs
     )
     return retrieved_docs
+
+# class AgentRag:
 
 def create_agent2(chat_model: str):
     # khởi tạo model chat
