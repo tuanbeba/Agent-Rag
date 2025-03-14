@@ -1,11 +1,27 @@
 import streamlit as st
-from database_vector import create_ChromaDB
-from rag import create_agent1
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
+from options_model import LocalChat,LocalEmbedding,OnlineChat,OnlineEmbedding
+from vectorstore import LocalVectorStore
+import tempfile
+import os
 
 def load_api_keys():
     load_dotenv()
+
+def initialize_ss_state():
+    if "is_local" not in st.session_state:
+        st.session_state.is_local = None
+    if "embedding_model" not in st.session_state:
+        st.session_state.embedding_model = None
+    if "chat_model" not in st.session_state:
+        st.session_state.chat_model = None
+    if "file_list" not in st.session_state:
+        st.session_state.file_list = []
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if "vector_store" not in st.session_state:
+        st.session_state.vector_store = None
 
 def setup_page_config():
     st.set_page_config(
@@ -14,59 +30,66 @@ def setup_page_config():
         
     )
 
-def handle_file(embedd_model):
-    st.header("Tải tệp PDF ")
-    pdf_file = st.file_uploader(label="Upload pdf here", type= ["pdf"])
-
-    if "bool_db" not in st.session_state:
-        st.session_state.bool_db = False
-    
-    if pdf_file is not None:
-        #lấy tên file hiện tại
-        current_filename = pdf_file.name     
-        # kiểm tra xem có thay đổi file không
-        if "upload_file" in st.session_state:
-            if current_filename != st.session_state.upload_file:
-                st.session_state.bool_db = False
-        else :
-            st.session_state.upload_file = current_filename
-
-        if st.session_state.bool_db == False:
-            with st.spinner("Vui lòng chờ trong giây lát"):
-                try:
-
-                    vector_store = create_ChromaDB(pdf_file=pdf_file, embed_model=embedd_model)
-                    st.session_state.bool_db = True
-                    st.success("Tạo vectorDB thành công.")
-                except Exception as e:
-                    st.error(f" lỗi {str(e)}")
-        # pass
-        
-    else:
-        st.session_state.bool_db = False
-        st.warning("Bạn cần tải ít nhất một file PDF trước khi chat.")
-        st.stop()  # Lệnh này sẽ dừng các phần code bên dưới, ẩn luôn giao diện chat
-    
-
 
 def setup_sidebar():
     with st.sidebar:
         st.title("Chatbot Setting")
         
         # chọn model embed
-        embedd_model = st.sidebar.selectbox(label="Lựa chọn model embedding", 
-                                            options=["nomic-embed-text", "text-embedding-3-large"])
-        print("model embedding: ", embedd_model)
+        environment = st.selectbox(label="Choosing type", 
+                                options=("Online", "Local"),
+                                label_visibility="collapsed")
+        st.session_state.is_local = False if environment == "Online" else True
+        chat_models = OnlineChat.keys() if environment == "Online" else LocalChat.keys()
+        embedding_models = OnlineEmbedding.keys() if environment == "Online" else LocalEmbedding.keys()
+
+
+        # Chọn mô hình chat và mô hình embedding
+        selected_chat_model = st.selectbox("Choose Chat Model", options=chat_models)
+        st.session_state.chat_model = selected_chat_model
+        selected_embedding_model = st.selectbox("Choose Embedding Model", options=embedding_models)
+        st.session_state.embedding_model = selected_embedding_model
+
         # xóa lịch sử chat
         if st.button(label="Clear history"):
-            st.session_state.message = []
+            st.session_state.chat_history = []
             print("Delete history")
-           
-        # chọn model chat
-        chat_model = st.sidebar.selectbox(label="Lựa chọn model chat", options=["llama3.1", "gpt-4o-mini"])
-        print("model chat: ", chat_model)
+        uploaded_files=st.file_uploader(label="Upload Pdf documents",
+                         type=["pdf"],
+                         accept_multiple_files=True
+                         )
+        st.session_state.file_list = uploaded_files
+        if st.button(label="Upload"):
+            handle_files_input(uploaded_files)
 
-    return embedd_model, chat_model
+def handle_files_input(uploaded_files):
+    if len(uploaded_files) == 0:
+        st.warning("Bạn cần tải ít nhất một file PDF trước khi chat.")
+        st.stop()  # Lệnh này sẽ dừng các phần code bên dưới, ẩn luôn giao diện chat
+
+    temp_paths = []  # Danh sách đường dẫn tạm thời của các file
+    try:
+        
+        for uploaded_file in uploaded_files:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                tmp_file.write(uploaded_file.read())  # Ghi dữ liệu vào file
+                temp_paths.append(tmp_file.name)  # Lưu đường dẫn file tạm vào danh sách
+
+        with st.spinner("Vui lòng chờ trong giây lát"):
+            vector_store = LocalVectorStore(st.session_state.is_local, st.session_state.embedding_model)
+            vector_store.set_vectorstore(input_files=temp_paths)
+            st.session_state.vector_store = vector_store
+
+    except Exception as e:
+                st.error(f"❌ lỗi {str(e)}")
+    finally:
+            # Xóa từng file tạm
+        for path in temp_paths:
+            try:
+                os.remove(path)
+            except Exception as e:
+                st.warning(f"Không thể xóa file tạm {path}: {e}")
+        
 
 
 def display_chat_history():
@@ -113,13 +136,12 @@ def handle_user_input(llm_with_tools):
 
 def main():
 
+    initialize_ss_state()
     load_api_keys()
     setup_page_config()
-    embedd_model, chat_model = setup_sidebar()
-    agent_rag = create_agent1(chat_model=chat_model, embedd_model=embedd_model)
-    handle_file(embedd_model)
-    display_chat_history()
-    handle_user_input(agent_rag)
+    setup_sidebar()
+    # display_chat_history()
+    # handle_user_input(agent_rag)
     print("#######################")
 
 
