@@ -13,15 +13,15 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 class LocalVectorStore:
-    def __init__(self, is_local: bool, embedding_model: str, k_retriever: int, chunk_size: int, chunk_overlap: int ):
+    def __init__(self, is_local: bool, embedding_model: str):
         self.is_local = is_local
         if self.is_local:
             self.embedding_model = OllamaEmbeddings(model=embedding_model)
         else:
             self.embedding_model = OpenAIEmbeddings(model=embedding_model)
-        self.k_retriever = k_retriever
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+        # self.k_retriever = k_retriever
+        # self.chunk_size = chunk_size
+        # self.chunk_overlap = chunk_overlap
 
     def _clean_text(self, text: str)-> str:
         # định nghĩa regex
@@ -53,8 +53,6 @@ class LocalVectorStore:
     
     
     def set_vectorstore(self, input_files):
-
-
         all_docs = self._parse_pdf(input_files=input_files)
         # khởi tạo kho lưu trữ vector với Chroma
         vector_store = Chroma(
@@ -67,9 +65,6 @@ class LocalVectorStore:
         vector_store.add_documents(documents=all_docs)
         print(f"save {len(all_docs)} vectors to disk")
 
-        bm25_retriever = BM25Retriever.from_documents(all_docs)
-        return vector_store,bm25_retriever
-    
     def get_vectorstore(self):
         # load vector store from disk
         vector_store = Chroma(collection_name=ChromaSetting.COLLECTION_NAME,
