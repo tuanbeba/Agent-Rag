@@ -45,7 +45,9 @@ class LocalVectorStore:
             for page in pages:
                 page.page_content = self._clean_text(page.page_content)
             # chia nhỏ text thành các chunks
-            char_splitter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap = 200)
+            char_splitter = RecursiveCharacterTextSplitter(
+                chunk_size = ChromaSetting().chunk_size,
+                chunk_overlap = ChromaSetting().chunk_overlap,)
             chunk = char_splitter.split_documents(pages)
             chunks.extend(chunk)
         
@@ -56,9 +58,9 @@ class LocalVectorStore:
         all_docs = self._parse_pdf(input_files=input_files)
         # khởi tạo kho lưu trữ vector với Chroma
         vector_store = Chroma(
-        collection_name=ChromaSetting.COLLECTION_NAME, # tên collection
+        collection_name=ChromaSetting().collection_name, # tên collection
         embedding_function=self.embedding_model,
-        persist_directory=ChromaSetting.CHROMA_PATH,  # nơi lưu data local
+        persist_directory=ChromaSetting().chroma_path,  # nơi lưu data local
         )
         # xóa collection và tạo lại collection rỗng
         vector_store.reset_collection()
@@ -67,9 +69,9 @@ class LocalVectorStore:
 
     def get_vectorstore(self):
         # load vector store from disk
-        vector_store = Chroma(collection_name=ChromaSetting.COLLECTION_NAME,
+        vector_store = Chroma(collection_name=ChromaSetting().collection_name,
         embedding_function=self.embedding_model,
-        persist_directory=ChromaSetting.CHROMA_PATH
+        persist_directory=ChromaSetting().chroma_path
         )
         print("connected chromaDB")
 

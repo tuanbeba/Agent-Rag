@@ -1,10 +1,11 @@
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
 from options_model import LocalChat,LocalEmbedding,OnlineChat,OnlineEmbedding
 from vectorstore import LocalVectorStore
+from agent import Agent
 import tempfile
 import os
+import asyncio
 
 def load_api_keys():
     load_dotenv()
@@ -22,6 +23,8 @@ def initialize_ss_state():
         st.session_state.chat_history = []
     if "vector_store" not in st.session_state:
         st.session_state.vector_store = None
+    if "agent" not in st.session_state:
+        st.session_state.agent = None
 
 def setup_page_config():
     st.set_page_config(
@@ -53,19 +56,23 @@ def setup_sidebar():
         # xóa lịch sử chat
         if st.button(label="Clear history"):
             st.session_state.chat_history = []
-            print("Delete history")
+            # print("Delete history")
+        st.subheader(body="Upload Document")
         uploaded_files=st.file_uploader(label="Upload Pdf documents",
                          type=["pdf"],
+                         label_visibility="collapsed",
                          accept_multiple_files=True
                          )
-        st.session_state.file_list = uploaded_files
-        if st.button(label="Upload"):
-            handle_files_input(uploaded_files)
+        upload = st.button(label="Upload File")
+        if uploaded_files != st.session_state.file_list and not upload:
+            st.warning("Đã thay đổi tệp")
+        elif uploaded_files != st.session_state.file_list and upload:
+            st.session_state.file_list = uploaded_files  # Cập nhật danh sách file
+            handle_files_input(uploaded_files)  # Gọi hàm xử lý file
+            st.success("Files uploaded successfully!")
+            st.session_state.chat_history = []
 
 def handle_files_input(uploaded_files):
-    if len(uploaded_files) == 0:
-        st.warning("Bạn cần tải ít nhất một file PDF trước khi chat.")
-        st.stop()  # Lệnh này sẽ dừng các phần code bên dưới, ẩn luôn giao diện chat
 
     temp_paths = []  # Danh sách đường dẫn tạm thời của các file
     try:
@@ -78,7 +85,7 @@ def handle_files_input(uploaded_files):
         with st.spinner("Vui lòng chờ trong giây lát"):
             vector_store = LocalVectorStore(st.session_state.is_local, st.session_state.embedding_model)
             vector_store.set_vectorstore(input_files=temp_paths)
-            st.session_state.vector_store = vector_store
+            st.session_state.agent = Agent(st.session_state.is_local, st.session_state.chat_model, vector_store)
 
     except Exception as e:
                 st.error(f"❌ lỗi {str(e)}")
@@ -90,61 +97,53 @@ def handle_files_input(uploaded_files):
             except Exception as e:
                 st.warning(f"Không thể xóa file tạm {path}: {e}")
         
+async def handle_user_input():
 
-
-def display_chat_history():
     st.title("Asisstant ChatBot")
-    # khởi tạo chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # Kiểm tra nếu không có file nào thì làm mờ hộp chat
+    is_disabled = not st.session_state.get("file_list", [])  # True nếu file_list rỗng
 
     # hiển thị tin nhắn trò chuyện từ lịch sử khi chạy lại ứng dụng
-    for message in st.session_state.messages:
+    for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
-            st.write(message["content"])
+            st.markdown(message["content"])
 
-
-def handle_user_input(llm_with_tools):
-
+    # Làm mờ nếu không có file
+    if is_disabled:
+        st.warning("Bạn cần tải ít nhất lên một tệp PDF trước khi chat!")
+        st.stop()  # Dừng luồng thực thi để ngăn nhập liệu
+    
     # đầu vào người dùng
     if prompt:=st.chat_input(placeholder="Nhập câu hỏi của bạn ở đây?"):
         # thêm tin nhắn người dùng vào lịch sử chat
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
         # hiển thị tin nhắn người dùng trong chat message container
         with st.chat_message("user"):
-            st.write(prompt)
-        
+            st.markdown(prompt)
         # hiển thị phản hồi của ai trong chat message container
         with st.chat_message("assistant"):
-            # lấy lịch sử chat lưu trong session_state
-            chat_history = []
-            for message in st.session_state.messages[:-1]:
-                chat_history.append({"role": message["role"], "content": message["content"]})
-            # lấy phản hồi từ chain
-            # response = chain.invoke({
-            #     "input": prompt,
-            #     "chat_history": chat_history    
-            #     }
-            # )
-            reponse = llm_with_tools.invoke([HumanMessage(content=prompt)])
-            print("chat history: \n", chat_history)
-            st.write(reponse)
+            #giữ chỗ cho AI messgage
+            response_container = st.empty()
+            response_text = ""
+            # lấy phản hồi từ agent
+            async for chunk in st.session_state.agent.run_agent(prompt, st.session_state.chat_history):
+                response_text += chunk
+                response_container.markdown(response_text)
         # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": output})
-        
+        st.session_state.chat_history.append({"role": "assistant", "content": response_text})
+            
 
 
-def main():
+async def main():
 
     initialize_ss_state()
     load_api_keys()
     setup_page_config()
     setup_sidebar()
-    # display_chat_history()
-    # handle_user_input(agent_rag)
+    await handle_user_input()
     print("#######################")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
 
