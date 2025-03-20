@@ -6,7 +6,7 @@ Agent-RAG is a chatbot project that allows users to upload PDF documents and ask
 
 
 
-![Chatbot Flow](image\Chatbot_flow.png)
+![Chatbot Flow](image/Chatbot_flow.png)
 
 ## ⭐ Features
 
@@ -60,7 +60,7 @@ streamlit run src/main.py
 
 ## 📌 Usage
 ### User Interface  
-![User Interface](image\UI_ChatBot.png)
+![User Interface](image/UI_ChatBot.png)
 ### 🔹 1. Start App
 You can view the application at Local URL: `http://localhost:8501`
 ### 🔹 2. Choosing model
