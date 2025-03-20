@@ -1,0 +1,17 @@
+#UI
+streamlit
+
+#LangChain
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langchain-openai
+langchain-chroma
+
+#rerank
+FlagEmbedding
+
+python-dotenv
+pypdf
+rank_bm25

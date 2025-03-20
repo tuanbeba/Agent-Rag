@@ -24,8 +24,11 @@ class RetrieverSetting(BaseModel):
         default=[0.7, 0.3], description="weights for retriever"
     )
     rerank_model: str = Field(
-        default="", description="Rerank model"
+        default="BAAI/bge-reranker-v2-m3", description="Rerank model"
     )
     rerank_top_k: int = Field(
         default=5, description="top k documents for rerank"
+    )
+    use_rerank: bool = Field(
+        default=True, description="using reranking or not"
     )

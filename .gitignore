@@ -1,11 +1,9 @@
-data/
-chroma_langchain_db/
+data/*
 .gitignore
-chroma_test/
+chroma_test/*
 volumes/
 chroma.log
-*.ipynb
 .env
 __pycache__
 test.py
-image/*
+test.md

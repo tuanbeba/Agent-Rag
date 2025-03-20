@@ -1,11 +1,13 @@
 import streamlit as st
 from dotenv import load_dotenv
-from options_model import LocalChat,LocalEmbedding,OnlineChat,OnlineEmbedding
+from option_model import LocalChat,LocalEmbedding,OnlineChat,OnlineEmbedding
 from vectorstore import LocalVectorStore
 from agent import Agent
 import tempfile
 import os
 import asyncio
+import torch
+torch.classes.__path__ = []
 
 def load_api_keys():
     load_dotenv()
@@ -56,7 +58,6 @@ def setup_sidebar():
         # xóa lịch sử chat
         if st.button(label="Clear history"):
             st.session_state.chat_history = []
-            # print("Delete history")
         st.subheader(body="Upload Document")
         uploaded_files=st.file_uploader(label="Upload Pdf documents",
                          type=["pdf"],

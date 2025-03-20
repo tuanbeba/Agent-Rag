@@ -11,11 +11,84 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from setting import RetrieverSetting
+from FlagEmbedding import FlagReranker
+import torch
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
+class RAG_pipeline():
+    def __init__(self, vector_store: LocalVectorStore):
+        self.vector_store = vector_store
+        self.similarity_top_k = RetrieverSetting().similarity_top_k
+        self.bm25_top_k = RetrieverSetting().bm25_top_k
+        self.rerank_top_k = RetrieverSetting().rerank_top_k
+        self.retriever_weight = RetrieverSetting().retriever_weight
+        self.device=["cuda"] if torch.cuda.is_available() else ["cpu"]
+        self.rerank_model = FlagReranker(RetrieverSetting().rerank_model, use_fp16=True, devices=self.device)
+        self.use_rerank = RetrieverSetting().use_rerank
+
+
+    def rerank(self, query, list_docs, top_k):
+
+        pairs = [[query, doc.page_content] for doc in list_docs]
+        scores = self.rerank_model.compute_score(sentence_pairs=pairs, normalize = True)
+        top_docs = sorted(zip(scores, list_docs), key=lambda x: x[0], reverse=True)[:top_k]
+        top_chunks_rerank = [doc for _, doc in top_docs]
+        print(f"Lenght docs reranked : {len(top_chunks_rerank)}")
+
+        return top_chunks_rerank
+        
+    def hybrid_search(self, query):
+
+        vectordb = self.vector_store.get_vectorstore()
+        # tạo retrival chroma
+        chroma_retriever = vectordb.as_retriever(
+            search_type="similarity", 
+            search_kwargs={"k": RetrieverSetting().similarity_top_k}
+        )
+        # tạo retriver BM25
+        all_ids = vectordb._collection.get()["ids"]
+        if not all_ids:
+            raise ValueError(" Not found documents in collection")
+        documents = vectordb.get_by_ids(all_ids)
+        bm25_retriever = BM25Retriever.from_documents(documents)
+        bm25_retriever.k = RetrieverSetting().bm25_top_k
+
+        if self.use_rerank:
+            chroma_result = chroma_retriever.invoke(query)
+            bm25_result = bm25_retriever.invoke(query)
+            page_content = set()
+            docs_retriever = []
+            for doc in chroma_result:
+                if doc.page_content not in page_content:
+                    page_content.add(doc.page_content)
+                    docs_retriever.append(doc)
+            for doc in bm25_result:
+                if doc.page_content not in page_content:
+                    page_content.add(doc.page_content)
+                    docs_retriever.append(doc)
+            if not docs_retriever:
+                raise ValueError("No documents retrieved for reranking.")
+            reranked_docs = self.rerank(query=query,list_docs=docs_retriever, top_k= self.rerank_top_k)
+
+            return reranked_docs
+        else:
+            emsemble_retreiever = EnsembleRetriever(
+                retrievers=[chroma_retriever, bm25_retriever],
+                weights=self.retriever_weight
+            )
+            return emsemble_retreiever.invoke(query) 
+    
+        
+    def process_query(self, query):
+
+
+        pass
+
+
 class Agent():
+
     def __init__(self, is_local: bool, chat_model: str, vector_store: LocalVectorStore):
         self.is_local = is_local
         if self.is_local:
@@ -23,56 +96,44 @@ class Agent():
         else:
             self.chat_model = ChatOpenAI(model=chat_model, streaming=True)
         self.vector_store = vector_store
-        self.preamble="""
+        self.rag_retreiver = RAG_pipeline(self.vector_store)
+        self.system="""
             ## Task &amp; Context
             You help people answer their questions and other requests interactively. You will be asked a very wide array of requests on all kinds of topics. You will be equipped with a wide range of search engines or similar tools to help you, which you use to research your answer. You should focus on serving the user's needs as best you can, which will be wide-ranging.
             ## Style Guide
             Unless the user asks for a different style of answer, you should answer in full sentences, using proper grammar and spelling.
             ## Guidelines
             You are an expert who answers the user's question.
-            You have access to a hybrid_search tool that will use your query to search through documents and find the relevant answer.
+            You have access to a search tool that will use your query to search through documents and find the relevant answer.
             """
         self.get_tools()
         self.build_agent()
         
     def get_tools(self,):
         @tool
-        def hybrid_search(query: str):
+        def search(query: str):
             "Uses the query to search through a list of documents and return the most relevant documents."
-            vectordb = self.vector_store.get_vectorstore()
             # tạo retrival chroma
-            chroma_retriever = vectordb.as_retriever(
-                search_type="similarity", 
-                search_kwargs={"k": RetrieverSetting().similarity_top_k}
-            )
-            # tạo retriver BM25
-            all_ids = vectordb._collection.get()["ids"]
-            if not all_ids:
-                raise ValueError(" Not found documents in collection")
-            documents = vectordb.get_by_ids(all_ids)
-            bm25_retriever = BM25Retriever.from_documents(documents)
-            bm25_retriever.k = RetrieverSetting().bm25_top_k
-            # tạo retrievel kết hợp BM25 và similarity
-            ensemble_retriever = EnsembleRetriever(
-                retrievers=[chroma_retriever, bm25_retriever],
-                weights=RetrieverSetting().retriever_weight
-            )
-            docs_retriever = ensemble_retriever.invoke(query)
+            final_docs = self.rag_retreiver.hybrid_search(query=query)
+            if final_docs is None:
+                return "No documents found."
 
-            return docs_retriever
-        hybrid_search.name ="hybridsearch"
-        hybrid_search.description = "Uses the query to search through a list of documents and return the most relevant documents."
+            content_docs = ""
+            for doc in final_docs:
+                content_docs += doc.page_content + "\n"
+
+            return content_docs
+        search.name ="hybridsearch"
+        search.description = "Uses the query to search through a list of documents and return the most relevant documents."
         class SearchInput(BaseModel):
             query: str = Field(description="The users query")
-        hybrid_search.args_schema = SearchInput
+        search.args_schema = SearchInput
 
-        self.tools = [hybrid_search]
+        self.tools = [search]
     
-
     def build_agent(self):
-        system = """You are an expert at AI. Your name is AlphaAI."""
         prompt = ChatPromptTemplate.from_messages([
-            ("system", system),
+            ("system", self.system),
             MessagesPlaceholder(variable_name='chat_history', optional=True),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name='agent_scratchpad')
@@ -95,6 +156,7 @@ class Agent():
         event_types = {event["event"] for event in events}
         print("Unique event types:", event_types)
     
+
 async def main():
     pdf1 = r"data\1506.02640v5.pdf"
     pdf2 = r"data\2312.16862v3.pdf"
@@ -106,10 +168,10 @@ async def main():
     while (user_input := input("user input: ")):
         if user_input.lower() == "quit":
             break
-        async for response in agent1.run_agent(user_input, chat_history):  # Dùng async for
-            print(f"AI: {response}", end=" ", flush=True)
-        # chat_history.append(HumanMessage(content=user_input))
-        # chat_history.append(AIMessage(content=output))
 
+        async for response in agent1.run_agent(user_input, chat_history):  # Dùng async for
+            print(response, end="", flush=True)
+        print()
 if __name__ == "__main__":
+
     asyncio.run(main())
